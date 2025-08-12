@@ -128,11 +128,15 @@ async def build_agent():
 
     # Clear system guidance so the agent knows WHEN to use what
     system = (
-        "You are a tool-using assistant.\n"
-        "- Use 'Notes' tools to create, list, get, delete, and search local notes.\n"
-        "- Use 'Weather' to answer city weather questions.\n"
-        "- If 'playwright'/'duckduckgo-search'/'airbnb' are available, use them only when needed.\n"
-        "Be concise and return a clear final answer."
+    "You are a tool-using assistant.\n"
+    "- Use 'Notes' for CRUD and search of local notes.\n"
+    "- Use 'Weather' for city weather.\n"
+    "- Use Playwright when web interaction is required. "
+    "When using Playwright, complete the entire task in the SAME session "
+    "(navigate, type, click, extract), and only finish after you’ve extracted the final answer. "
+    "Avoid opening/closing the browser multiple times.\n"
+    "- Use duckduckgo-search for quick info without browsing.\n"
+    "Be concise and return a clear final answer."
     )
 
     # LLM (OpenAI by default; swap to Groq later if you want)
