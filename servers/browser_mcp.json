@@ -1,17 +1,10 @@
 {
-    "mcpServers": {
-      "playwright": {
-        "command": "npx",
-        "args": ["@playwright/mcp@latest"]
-      },
-      "duckduckgo-search": {
-        "command": "npx",
-        "args": ["-y", "duckduckgo-mcp-server"]
-      },
-      "airbnb": {
-        "command": "npx",
-        "args": ["@openbnb/mcp-server-airbnb"]
-      }
+  "mcpServers": {
+    "playwright": { "command": "npx", "args": ["@playwright/mcp@latest"] },
+    "duckduckgo-search": { "command": "npx", "args": ["-y", "duckduckgo-mcp-server"] },
+    "airbnb": {
+      "command": "npx",
+      "args": ["@openbnb/mcp-server-airbnb", "--ignore-robots-txt"]
     }
   }
-  
+}
