@@ -149,6 +149,7 @@ async def build_agent():
     agent = create_react_agent(llm, tools)
     return agent, system
 
+# ---- CLI --------------------------------------------------------------------
 async def run_cli():
     """
     Simple REPL-style CLI that lets you chat with the agent.
@@ -158,14 +159,17 @@ async def run_cli():
     history = []  # minimal in-memory conversation so the agent has context
     step_printer = StepPrinter()
 
-    print("\nMCP Navigator — CLI")
-    print("Type a query. Examples:")
+
+    print("\nMCP Navigator — CLI (OpenAI only)")
+    print("=" * 56)
+    print("Examples:")
     print("  • Create a note titled 'ideas' with content 'Ship MCP demo on Friday'")
     print("  • List my notes")
-    print("  • Show the note 'ideas'")
     print("  • Weather in New York")
-    print("  • What’s the weather in Mumbai?")
-    print("Type 'exit' to quit.\n")
+    print("  • browse: open google.com, then go to airbnb.com and find cheapest NYC stays on 13 Aug")
+    print("      - Use 'browse: clear' to clear Playwright memory\n")
+    print("Type 'exit' to quit.")
+    print("=" * 56 + "\n")
 
     while True:
         try:
