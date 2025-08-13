@@ -3,15 +3,17 @@
     "playwright": {
       "command": "npx",
       "args": [
+        "-y",
         "@playwright/mcp@latest"
-      ]
+  ]
     },
     "airbnb": {
       "command": "npx",
       "args": [
         "-y",
         "@openbnb/mcp-server-airbnb",
-        "--ignore-robots-txt"
+        "--ignore-robots-txt",
+        "--session-persistent"
       ]
     },
     "duckduckgo-search": {
