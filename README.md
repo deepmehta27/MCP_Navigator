@@ -202,11 +202,142 @@ uv run client.py
 
 ## 📄 License
 
-[Add your license information here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2024 MCP Navigator
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## 🤝 Contributing
 
-[Add contribution guidelines here]
+We welcome contributions to MCP Navigator! This project thrives on community involvement and we appreciate any help you can provide.
+
+### How to Contribute
+
+1. **Fork the Repository**
+   - Fork this repository to your GitHub account
+   - Clone your fork locally: `git clone https://github.com/yourusername/MCP_Navigator.git`
+
+2. **Set Up Development Environment**
+   ```bash
+   cd MCP_Navigator
+   uv sync
+   # Install Node.js dependencies if working on browser MCPs
+   npx @playwright/mcp@latest
+   npx @openbnb/mcp-server-airbnb
+   npx duckduckgo-mcp-server
+   ```
+
+3. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or for bug fixes
+   git checkout -b fix/your-bug-description
+   ```
+
+4. **Make Your Changes**
+   - Follow the existing code style and conventions
+   - Add tests for new functionality
+   - Update documentation as needed
+   - Ensure all existing tests pass
+
+5. **Test Your Changes**
+   ```bash
+   # Run the application to test your changes
+   uv run client.py
+   
+   # Test specific functionality
+   # Add any new test files to the tests/ directory
+   ```
+
+6. **Commit Your Changes**
+   ```bash
+   git add .
+   git commit -m "feat: add new MCP server integration"
+   # Use conventional commit messages:
+   # feat: new feature
+   # fix: bug fix
+   # docs: documentation changes
+   # style: formatting changes
+   # refactor: code refactoring
+   # test: adding tests
+   # chore: maintenance tasks
+   ```
+
+7. **Push and Create a Pull Request**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+   - Go to your fork on GitHub
+   - Click "New Pull Request"
+   - Provide a clear description of your changes
+   - Reference any related issues
+
+### Contribution Guidelines
+
+#### Code Style
+- Follow PEP 8 for Python code
+- Use meaningful variable and function names
+- Add type hints where appropriate
+- Include docstrings for functions and classes
+
+#### MCP Server Development
+- When adding new MCP servers, follow the existing pattern in `servers/`
+- Use FastMCP for Python servers when possible
+- Document any new environment variables or configuration options
+- Update the main client configuration in `client.py`
+
+#### Testing
+- Add tests for new functionality in the `tests/` directory
+- Ensure browser automation tests work in both headless and visible modes
+- Test MCP server integrations thoroughly
+
+#### Documentation
+- Update README.md for new features
+- Add inline comments for complex logic
+- Document any breaking changes clearly
+
+### Areas for Contribution
+
+- **New MCP Servers**: Add integrations with additional services
+- **Enhanced Browser Automation**: Improve Playwright integration
+- **UI/UX Improvements**: Better CLI interface or web interface
+- **Testing**: Expand test coverage
+- **Documentation**: Improve guides and examples
+- **Performance**: Optimize agent response times
+- **Error Handling**: Better error messages and recovery
+
+### Getting Help
+
+- **Issues**: Use GitHub Issues for bug reports and feature requests
+- **Discussions**: Use GitHub Discussions for questions and ideas
+- **Code Review**: All contributions require review before merging
+
+### Code of Conduct
+
+We are committed to providing a welcoming and inclusive environment for all contributors. Please be respectful and constructive in all interactions.
+
+Thank you for contributing to MCP Navigator! 🚀
 
 ---
 
