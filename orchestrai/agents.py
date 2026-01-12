@@ -1,0 +1,47 @@
+from __future__ import annotations
+import os
+from crewai import Agent
+from langchain_openai import ChatOpenAI
+from typing import List, Any
+
+from .mcp_tools import filter_tools
+
+def _llm() -> ChatOpenAI:
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    return ChatOpenAI(model=model, temperature=0)
+
+
+def build_research_agent(all_tools: List[Any]) -> Agent:
+    tools = filter_tools(all_tools, allow=["duckduckgo", "playwright"])
+    return Agent(
+        role="Research Coordinator",
+        goal="Gather accurate, relevant information using search and browsing tools.",
+        backstory="You are careful, skeptical, and cite sources in your own scratch notes.",
+        llm=_llm(),
+        allow_delegation=False,
+        verbose=True,
+    )
+
+
+def build_planner_agent(all_tools: List[Any]) -> Agent:
+    tools = filter_tools(all_tools, allow=["notes"])
+    return Agent(
+        role="Task Planner",
+        goal="Convert user goals into a structured step-by-step plan, track it in Notes.",
+        backstory="You create deterministic plans with clear success criteria and tool choices.",
+        llm=_llm(),
+        allow_delegation=False,
+        verbose=True,
+    )
+
+
+def build_executor_agent(all_tools: List[Any]) -> Agent:
+    tools = filter_tools(all_tools, allow=["weather", "airbnb", "playwright", "notes"])
+    return Agent(
+        role="Action Executor",
+        goal="Execute the plan using tools, handle failures, and produce a final answer.",
+        backstory="You are practical and focus on completing tasks with tool calls.",
+        llm=_llm(),
+        allow_delegation=False,
+        verbose=True,
+    )
