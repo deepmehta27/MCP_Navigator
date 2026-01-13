@@ -39,7 +39,15 @@ def build_executor_agent(all_tools: List[Any]) -> Agent:
     tools = filter_tools(all_tools, allow=["weather", "airbnb", "playwright", "notes"])
     return Agent(
         role="Action Executor",
-        goal="Execute the plan using tools, handle failures, and produce a final answer.",
+        goal=(
+            "Execute the plan using the provided tool results.\n"
+            "Rules:\n"
+            "- DO NOT retry tools\n"
+            "- DO NOT explain failures\n"
+            "- DO NOT include thoughts or reasoning\n"
+            "- If tool data is missing, state failure clearly and stop\n"
+            "- Output ONLY the final user-facing answer"
+        ),
         backstory="You are practical and focus on completing tasks with tool calls.",
         llm=_llm(),
         allow_delegation=False,

@@ -17,7 +17,20 @@ class ToolRunner:
     async def call(self, tool_name: str, args: Dict[str, Any]) -> Any:
         if tool_name not in self.by_name:
             raise KeyError(f"Tool '{tool_name}' not found. Available: {self.list_tools()}")
+        
         tool = self.by_name[tool_name]
+        
+        # SPECIAL HANDLING: Weather tool requires "location" not "city"
+        if tool_name == "get_weather" and "city" in args:
+            # Transform to correct schema
+            city = args["city"]
+            args = {
+                "location": {
+                    "city": city,
+                    "state": "",
+                    "country": "US"
+                }
+            }
 
         # LangChain tools support ainvoke for async calls
         if hasattr(tool, "ainvoke"):

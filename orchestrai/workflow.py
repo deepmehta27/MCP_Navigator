@@ -62,6 +62,17 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         raw_plan = str(raw_plan)
 
     # ----------------------------
+    # SANITIZE PLANNER OUTPUT
+    # ----------------------------
+    raw_plan = raw_plan.strip()
+
+    if raw_plan.startswith("```"):
+        # remove ```json ... ``` fences
+        raw_plan = raw_plan.strip("`").strip()
+        if raw_plan.lower().startswith("json"):
+            raw_plan = raw_plan[4:].strip()
+
+    # ----------------------------
     # 2. VALIDATE PLAN (HARD GATE)
     # ----------------------------
     try:
@@ -72,7 +83,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
             f"Validation error:\n{e}\n\n"
             f"Raw output:\n{raw_plan}"
         )
-
+        
     # Validate tool names against allowed tools
     allowed = set(get_tool_names(tools))
     print(f"\n✅ Allowed tools: {sorted(allowed)}")
@@ -120,17 +131,20 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         try:
             # Extract city from goal (simple heuristic)
             words = user_goal.lower().split()
-            city_idx = words.index("in") + 1 if "in" in words else -1
-            city = words[city_idx] if city_idx > 0 and city_idx < len(words) else "New York"
+            if "in" in words:
+                city_idx = words.index("in") + 1
+                city = words[city_idx] if city_idx < len(words) else "New York"
+            else:
+                city = "New York"
             
-            # Call weather MCP tool directly
-            print(f"🌤️  Calling Weather MCP for {city}...")
-            weather_result = await runner.call("get_weather", {"city": city})
-            print(f"Weather result: {weather_result}\n")
+            # Call weather MCP tool directly with CORRECT schema
+            print(f"\n🌤️  Calling Weather MCP for {city}...")
+            weather_result = await runner.call("get_weather", {"city": city})  # tool_runner handles schema
+            print(f"✅ Weather result: {weather_result}\n")
             
         except Exception as e:
-            print(f"⚠️  Weather tool failed: {e}")
-            weather_result = f"Could not fetch weather: {e}"
+            print(f"⚠️  Weather tool failed: {e}\n")
+            weather_result = None  # Don't inject error into executor
 
     # ----------------------------
     # 5. RUN EXECUTOR (WITH TOOL RESULTS)
