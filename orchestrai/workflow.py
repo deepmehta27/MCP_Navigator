@@ -10,12 +10,20 @@ from orchestrai.mcp_tools import get_tool_names
 
 from eval.judge import judge_run
 
+from orchestrai.metrics import MetricsTracker, MetricEntry, infer_goal_type
+from datetime import datetime
+import time
 
 def _parse(model_cls, text: str):
     return model_cls.model_validate_json(text)
 
 
 async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
+    # Start timing
+    start_time = time.time()
+    
+    # Initialize metrics tracker
+    metrics = MetricsTracker()
     # ----------------------------
     # 0. SETUP
     # ----------------------------
@@ -222,6 +230,48 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
 
     print(f"\n📊 Judge scores: Success={judge.success}/5, Plan={judge.plan_quality}/5, Reasoning={judge.reasoning_quality}/5")
     print(f"Notes: {judge.notes}\n")
+    
+    # Calculate execution time
+    execution_time = time.time() - start_time
+    
+    # Extract tools used from plan
+    tools_used = []
+    for step in task_plan.steps:
+        if step.tools:
+            tools_used.extend(step.tools)
+    tools_used = list(set(tools_used))  # Deduplicate
+    
+    # Log metrics
+    metric_entry = MetricEntry(
+        timestamp=datetime.now().isoformat(),
+        goal=user_goal,
+        goal_type=infer_goal_type(user_goal),
+        success_score=judge.success,
+        plan_score=judge.plan_quality,
+        reasoning_score=judge.reasoning_quality,
+        execution_time_seconds=execution_time,
+        completed=execution_succeeded,
+        errors=execution_errors,
+        tools_used=tools_used,
+    )
+    metrics.log(metric_entry)
+    
+    # Print quick stats
+    print(f"⏱️  Execution time: {execution_time:.2f}s")
+    
+    return ExecutionResult(
+        goal=user_goal,
+        completed=execution_succeeded,
+        outputs={
+            "plan": task_plan.model_dump(),
+            "research": research_output,
+            "judge": judge.model_dump(),
+            "weather": weather_result if weather_result else None,
+            "execution_time": execution_time,  # Add this
+        },
+        errors=execution_errors,
+        final_answer=raw_exec,
+    )
 
     # ----------------------------
     # 7. RETURN STRUCTURED RESULT
