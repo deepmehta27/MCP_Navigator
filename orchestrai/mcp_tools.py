@@ -54,10 +54,8 @@ def ensure_weather_server() -> None:
             s.connect(("127.0.0.1", 8000))
             s.close()
             print(f"✅ Weather MCP ready after {(attempt + 1) * 0.5:.1f}s")
-            return
+            return  # ← Only returns when server is ACTUALLY ready
         except Exception:
-            if attempt < max_attempts - 1:
-                print(f"⏳ Waiting for Weather MCP... ({attempt + 1}/{max_attempts})")
             continue
     
     # If we get here, server never started
