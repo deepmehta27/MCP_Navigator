@@ -137,37 +137,43 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     weather_result = None
     if "weather" in user_goal.lower():
         try:
-            # Smart city extraction - handles multiple patterns
             import re
             
-            # Remove common filler words
+            # Smart city extraction - handles MULTI-WORD cities
             goal_clean = user_goal.lower()
             
-            # Try pattern 1: "weather in CITY"
-            match = re.search(r'\b(?:in|for)\s+([a-z\s]+?)(?:\s|$|,)', goal_clean)
+            # Pattern 1: "weather in CITY NAME" or "weather for CITY NAME"
+            # Capture everything after "in"/"for" until end or punctuation
+            match = re.search(r'\b(?:in|for)\s+([a-z]+(?:\s+[a-z]+)*)', goal_clean)
+            
             if match:
                 city = match.group(1).strip()
             else:
-                # Try pattern 2: "CITY weather"
+                # Pattern 2: "CITY NAME weather" (e.g., "boston weather")
                 match = re.search(r'\b([a-z]+)\s+weather', goal_clean)
                 if match:
                     city = match.group(1).strip()
                 else:
-                    # Try pattern 3: Last capitalized word (fallback)
+                    # Fallback: Look for capitalized words in original input
                     words = user_goal.split()
-                    city_candidates = [w for w in words if w and w[0].isupper() and len(w) > 2]
-                    city = city_candidates[-1].lower() if city_candidates else "New York"
+                    # Find sequences of capitalized words
+                    city_words = []
+                    for word in words:
+                        if word and word[0].isupper() and len(word) > 2 and word.isalpha():
+                            city_words.append(word)
+                    
+                    city = " ".join(city_words).lower() if city_words else "New York"
             
-            # Clean up city name
-            city = city.title()  # Capitalize properly
+            # Clean up and capitalize properly
+            city = city.title()
             
-            # Call weather MCP tool directly
-            print(f"\nCalling Weather MCP for {city}...")
+            # Call weather MCP tool
+            print(f"\n🌤️  Calling Weather MCP for {city}...")
             weather_result = await runner.call("get_weather", {"city": city})
             print(f"✅ Weather result: {weather_result}\n")
             
         except Exception as e:
-            print(f" Weather tool failed: {e}\n")
+            print(f"⚠️  Weather tool failed: {e}\n")
             weather_result = None
 
     # ----------------------------
