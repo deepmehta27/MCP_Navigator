@@ -129,22 +129,38 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     weather_result = None
     if "weather" in user_goal.lower():
         try:
-            # Extract city from goal (simple heuristic)
-            words = user_goal.lower().split()
-            if "in" in words:
-                city_idx = words.index("in") + 1
-                city = words[city_idx] if city_idx < len(words) else "New York"
-            else:
-                city = "New York"
+            # Smart city extraction - handles multiple patterns
+            import re
             
-            # Call weather MCP tool directly with CORRECT schema
-            print(f"\n🌤️  Calling Weather MCP for {city}...")
-            weather_result = await runner.call("get_weather", {"city": city})  # tool_runner handles schema
+            # Remove common filler words
+            goal_clean = user_goal.lower()
+            
+            # Try pattern 1: "weather in CITY"
+            match = re.search(r'\b(?:in|for)\s+([a-z\s]+?)(?:\s|$|,)', goal_clean)
+            if match:
+                city = match.group(1).strip()
+            else:
+                # Try pattern 2: "CITY weather"
+                match = re.search(r'\b([a-z]+)\s+weather', goal_clean)
+                if match:
+                    city = match.group(1).strip()
+                else:
+                    # Try pattern 3: Last capitalized word (fallback)
+                    words = user_goal.split()
+                    city_candidates = [w for w in words if w and w[0].isupper() and len(w) > 2]
+                    city = city_candidates[-1].lower() if city_candidates else "New York"
+            
+            # Clean up city name
+            city = city.title()  # Capitalize properly
+            
+            # Call weather MCP tool directly
+            print(f"\nCalling Weather MCP for {city}...")
+            weather_result = await runner.call("get_weather", {"city": city})
             print(f"✅ Weather result: {weather_result}\n")
             
         except Exception as e:
-            print(f"⚠️  Weather tool failed: {e}\n")
-            weather_result = None  # Don't inject error into executor
+            print(f" Weather tool failed: {e}\n")
+            weather_result = None
 
     # ----------------------------
     # 5. RUN EXECUTOR (WITH TOOL RESULTS)
