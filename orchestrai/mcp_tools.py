@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import os
 import sys
 import json
 import socket
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
@@ -19,16 +21,21 @@ def repo_path(*parts: str) -> str:
 
 
 def ensure_weather_server() -> None:
+    """Start Weather MCP server and wait until it's ready"""
+    
+    # Check if already running
     s = socket.socket()
     try:
         s.settimeout(0.3)
         s.connect(("127.0.0.1", 8000))
         s.close()
+        print("✅ Weather MCP already running on :8000")
         return
     except Exception:
         pass
-
-    print("Starting Weather MCP on :8000")
+    
+    # Start the server
+    print("🚀 Starting Weather MCP on :8000...")
     DETACHED = 0x00000008 if sys.platform == "win32" else 0
     subprocess.Popen(
         [sys.executable, repo_path("servers", "weather.py")],
@@ -36,11 +43,33 @@ def ensure_weather_server() -> None:
         stderr=subprocess.STDOUT,
         creationflags=DETACHED,
     )
+    
+    # ✅ CRITICAL FIX: Wait for server to actually start
+    max_attempts = 20  # Try for 10 seconds
+    for attempt in range(max_attempts):
+        time.sleep(0.5)  # Wait 500ms
+        s = socket.socket()
+        try:
+            s.settimeout(0.3)
+            s.connect(("127.0.0.1", 8000))
+            s.close()
+            print(f"✅ Weather MCP ready after {(attempt + 1) * 0.5:.1f}s")
+            return
+        except Exception:
+            if attempt < max_attempts - 1:
+                print(f"⏳ Waiting for Weather MCP... ({attempt + 1}/{max_attempts})")
+            continue
+    
+    # If we get here, server never started
+    raise RuntimeError(
+        "❌ Weather MCP failed to start after 10 seconds.\n"
+        "Check if port 8000 is already in use or if weather.py has errors."
+    )
 
 
 async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
     ensure_weather_server()
-
+    
     connections: Dict[str, Any] = {
         "notes": {
             "command": sys.executable,
@@ -52,7 +81,7 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
             "transport": "streamable_http",
         },
     }
-
+    
     browser_cfg_path = Path(repo_path("servers", "browser_mcp.json"))
     if browser_cfg_path.exists():
         cfg = json.loads(browser_cfg_path.read_text(encoding="utf-8"))
@@ -62,9 +91,9 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
                 "args": spec.get("args", []),
                 "transport": "stdio",
             }
-
+    
     client = MultiServerMCPClient(connections)
-
+    
     try:
         tools = await client.get_tools()
     except Exception as e:
@@ -76,9 +105,8 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
             "- Windows stdio issues\n\n"
             f"Original error:\n{e}"
         )
-
+    
     return tools, connections
-
 
 
 def filter_tools(tools: List[Any], allow: List[str]) -> List[Any]:
@@ -88,6 +116,7 @@ def filter_tools(tools: List[Any], allow: List[str]) -> List[Any]:
         if any(a in name for a in allow):
             allowed.append(t)
     return allowed
+
 
 def get_tool_names(tools):
     return sorted({tool.name for tool in tools})
