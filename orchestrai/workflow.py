@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import re
+import time
+from datetime import datetime, timedelta
+from typing import Dict, Any, Tuple
+import asyncio
 from crewai import Task, Crew, Process
 from pydantic import ValidationError
 
@@ -7,16 +12,125 @@ from orchestrai.schemas import ResearchPacket, TaskPlan, ExecutionResult
 from orchestrai.agents import build_research_agent, build_planner_agent, build_executor_agent
 from orchestrai.tool_runner import ToolRunner
 from orchestrai.mcp_tools import get_tool_names
-
 from eval.judge import judge_run
-
 from orchestrai.metrics import MetricsTracker, MetricEntry, infer_goal_type
-from datetime import datetime
-import time
+
+
+# ============================================================================
+# PARAMETER EXTRACTION FUNCTIONS (NEW)
+# ============================================================================
+
+def extract_city(text: str) -> str:
+    """Extract city name from natural language query"""
+    text_lower = text.lower()
+    
+    # Pattern 1: "weather in CITY" or "weather for CITY"
+    match = re.search(r'\b(?:in|for)\s+([a-z]+(?:\s+[a-z]+)*?)(?:\s+weather|$|\?|,)', text_lower)
+    if match:
+        return match.group(1).strip().title()
+    
+    # Pattern 2: "CITY weather"
+    match = re.search(r'\b([a-z]+(?:\s+[a-z]+)?)\s+weather', text_lower)
+    if match:
+        return match.group(1).strip().title()
+    
+    # Pattern 3: Look for capitalized words
+    words = text.split()
+    for i, word in enumerate(words):
+        if word and word[0].isupper() and len(word) > 2:
+            if i + 1 < len(words) and words[i + 1][0].isupper():
+                return f"{word} {words[i + 1]}"
+            return word
+    
+    # City abbreviations
+    city_map = {"nyc": "New York", "sf": "San Francisco", "la": "Los Angeles"}
+    for abbr, full_name in city_map.items():
+        if abbr in text_lower:
+            return full_name
+    
+    return "New York"
+
+# ============================================================================
+# GENERIC TOOL EXECUTION ENGINE (NEW)
+# ============================================================================
+
+async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str) -> Dict[str, Any]:
+    """
+    Execute all tools in the plan by extracting parameters from user_goal.
+    Returns a dict of {tool_name: result}
+    """
+    results = {}
+    
+    for step in plan.steps:
+        if not step.tools:
+            continue
+        
+        for tool_name in step.tools:
+            if tool_name in results:
+                continue  # Already executed
+            
+            try:
+                print(f"\n🔧 Executing: {tool_name}")
+                
+                # ===== TAVILY SEARCH (NEW!) =====
+                if tool_name == "tavily_search":
+                    result = await runner.call(tool_name, {
+                        "query": user_goal,
+                        "max_results": 5
+                    })
+                
+                # ===== WEATHER =====
+                elif tool_name == "get_weather":
+                    city = extract_city(user_goal)
+                    print(f"   🌤️  City: {city}")
+                    result = await runner.call(tool_name, {"city": city})
+                
+                # ===== NOTES =====
+                elif tool_name == "add_note":
+                    # Extract title and content
+                    match = re.search(r'note\s+titled?\s+["\']?([^"\']+?)["\']?\s+with\s+(?:content\s+)?["\']?(.+)["\']?', user_goal, re.IGNORECASE)
+                    if match:
+                        params = {"title": match.group(1).strip(), "content": match.group(2).strip()}
+                    else:
+                        params = {"title": "Note", "content": user_goal}
+                    result = await runner.call(tool_name, params)
+                
+                elif tool_name == "search_notes":
+                    match = re.search(r'search\s+(?:notes?\s+)?for\s+["\']?([^"\']+)["\']?', user_goal, re.IGNORECASE)
+                    keyword = match.group(1).strip() if match else user_goal
+                    result = await runner.call(tool_name, {"keyword": keyword})
+                
+                elif tool_name == "list_notes":
+                    result = await runner.call(tool_name, {})
+                
+                # ===== BROWSER (skip complex automation) =====
+                elif tool_name.startswith("browser_"):
+                    result = f"Browser tool '{tool_name}' requires manual configuration"
+                
+                # ===== FALLBACK =====
+                else:
+                    result = await runner.call(tool_name, {})
+                
+                # Store result
+                result_str = str(result)
+                results[tool_name] = result_str[:2000] if len(result_str) > 2000 else result_str
+                print(f"✅ Preview: {result_str[:150]}...")
+                
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                print(f"⚠️  Failed: {error_msg}")
+                results[tool_name] = error_msg
+    
+    return results
+
 
 def _parse(model_cls, text: str):
     return model_cls.model_validate_json(text)
 
+
+# ============================================================================
+# MAIN ORCHESTRATION (UPDATED)
+# ============================================================================
 
 async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     # Start timing
@@ -24,6 +138,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     
     # Initialize metrics tracker
     metrics = MetricsTracker()
+    
     # ----------------------------
     # 0. SETUP
     # ----------------------------
@@ -40,23 +155,28 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     # 1. CREATE PLAN
     # ----------------------------
     plan_task = Task(
-        description=(
-            "You are the Task Planner.\n\n"
-            "Create a task plan for the following goal.\n\n"
-            "CRITICAL RULES (VIOLATION = FAILURE):\n"
-            "1. Return ONLY valid JSON\n"
-            "2. JSON MUST match this schema exactly:\n"
-            f"{TaskPlan.model_json_schema()}\n\n"
-            "3. You may ONLY use tool names from this list:\n"
-            f"{allowed_tools}\n\n"
-            "DO NOT invent tools.\n"
-            "DO NOT use generic terms like 'browser', 'internet', or 'API'.\n"
-            "If no tool is needed for a step, omit the tools field.\n\n"
-            f"Goal: {user_goal}"
-        ),
-        expected_output="Valid JSON matching TaskPlan schema",
-        agent=planner_agent,
-    )
+    description=(
+        "You are the Task Planner.\n\n"
+        "Create a task plan for the following goal.\n\n"
+        "CRITICAL RULES (VIOLATION = FAILURE):\n"
+        "1. Return ONLY valid JSON\n"
+        "2. JSON MUST match this schema exactly:\n"
+        f"{TaskPlan.model_json_schema()}\n\n"
+        "3. You may ONLY use tool names from this list:\n"
+        f"{allowed_tools}\n\n"
+        "TOOL SELECTION RULES:\n"
+        "- For web searches: Use 'tavily_search' (reliable, fast)\n"
+        "- For weather: Use 'get_weather'\n"
+        "- For notes: Use 'add_note', 'search_notes', 'list_notes'\n"
+        "- Prefer simple, single-step solutions\n\n"
+        "DO NOT invent tools.\n"
+        "DO NOT use generic terms like 'browser', 'internet', or 'API'.\n"
+        "If no tool is needed for a step, omit the tools field.\n\n"
+        f"Goal: {user_goal}"
+    ),
+    expected_output="Valid JSON matching TaskPlan schema",
+    agent=planner_agent,
+)
 
     planner_crew = Crew(
         agents=[planner_agent],
@@ -75,7 +195,6 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     raw_plan = raw_plan.strip()
 
     if raw_plan.startswith("```"):
-        # remove ```json ... ``` fences
         raw_plan = raw_plan.strip("`").strip()
         if raw_plan.lower().startswith("json"):
             raw_plan = raw_plan[4:].strip()
@@ -91,8 +210,8 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
             f"Validation error:\n{e}\n\n"
             f"Raw output:\n{raw_plan}"
         )
-        
-    # Validate tool names against allowed tools
+    
+    # Validate tool names
     allowed = set(get_tool_names(tools))
     print(f"\n✅ Allowed tools: {sorted(allowed)}")
     
@@ -108,7 +227,24 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     print(f"✅ Plan validated: {len(task_plan.steps)} steps, all tools valid\n")
 
     # ----------------------------
-    # 3. OPTIONAL RESEARCH STEP
+    # 3. EXECUTE ALL TOOLS IN PLAN
+    # ----------------------------
+    print("\n" + "="*60)
+    print("🔧 EXECUTING TOOLS FROM PLAN")
+    print("="*60)
+
+    tool_results = await execute_plan_tools(task_plan, runner, user_goal)
+
+    # DEBUG: Show what we got
+    print(f"\n📦 Tool results collected: {len(tool_results)} tools")
+    for tool_name, result in tool_results.items():
+        print(f"  - {tool_name}: {result[:100]}..." if len(str(result)) > 100 else f"  - {tool_name}: {result}")
+
+    if not tool_results:
+        print("⚠️  WARNING: No tool results collected!")
+    
+    # ----------------------------
+    # 4. OPTIONAL RESEARCH STEP (EXISTING)
     # ----------------------------
     research_task = Task(
         description=(
@@ -132,51 +268,6 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         research_output = str(research_output)
 
     # ----------------------------
-    # 4. EXPLICIT MCP TOOL EXECUTION (WEATHER INTENT)
-    # ----------------------------
-    weather_result = None
-    if "weather" in user_goal.lower():
-        try:
-            import re
-            
-            # Smart city extraction - handles MULTI-WORD cities
-            goal_clean = user_goal.lower()
-            
-            # Pattern 1: "weather in CITY NAME" or "weather for CITY NAME"
-            # Capture everything after "in"/"for" until end or punctuation
-            match = re.search(r'\b(?:in|for)\s+([a-z]+(?:\s+[a-z]+)*)', goal_clean)
-            
-            if match:
-                city = match.group(1).strip()
-            else:
-                # Pattern 2: "CITY NAME weather" (e.g., "boston weather")
-                match = re.search(r'\b([a-z]+)\s+weather', goal_clean)
-                if match:
-                    city = match.group(1).strip()
-                else:
-                    # Fallback: Look for capitalized words in original input
-                    words = user_goal.split()
-                    # Find sequences of capitalized words
-                    city_words = []
-                    for word in words:
-                        if word and word[0].isupper() and len(word) > 2 and word.isalpha():
-                            city_words.append(word)
-                    
-                    city = " ".join(city_words).lower() if city_words else "New York"
-            
-            # Clean up and capitalize properly
-            city = city.title()
-            
-            # Call weather MCP tool
-            print(f"\n🌤️  Calling Weather MCP for {city}...")
-            weather_result = await runner.call("get_weather", {"city": city})
-            print(f"✅ Weather result: {weather_result}\n")
-            
-        except Exception as e:
-            print(f"⚠️  Weather tool failed: {e}\n")
-            weather_result = None
-
-    # ----------------------------
     # 5. RUN EXECUTOR (WITH TOOL RESULTS)
     # ----------------------------
     exec_description = (
@@ -185,16 +276,18 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         f"Task Plan:\n{task_plan.model_dump_json(indent=2)}\n\n"
     )
     
-    # Inject weather results if available
-    if weather_result:
-        exec_description += f"\nWeather data available:\n{weather_result}\n\n"
+    # Inject tool results into executor context
+    if tool_results:
+        exec_description += "\n**Tool Execution Results:**\n"
+        for tool_name, result in tool_results.items():
+            exec_description += f"\n{tool_name}:\n{result}\n"
     
     exec_description += (
-        "Rules:\n"
-        "- Execute steps in order\n"
-        "- Use only the tools listed per step\n"
-        "- Use the provided weather data if applicable\n"
-        "- If a step fails, report it clearly\n\n"
+        "\nRules:\n"
+        "- Use the tool results provided above\n"
+        "- DO NOT retry tools\n"
+        "- If data is missing, state it clearly\n"
+        "- Output ONLY the final user-facing answer\n\n"
         f"Original user goal: {user_goal}"
     )
     
@@ -272,25 +365,10 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
             "plan": task_plan.model_dump(),
             "research": research_output,
             "judge": judge.model_dump(),
-            "weather": weather_result if weather_result else None,
-            "execution_time": execution_time,  # Add this
+            "tool_results": tool_results,  # NEW: Include tool results
+            "execution_time": execution_time,
         },
         errors=execution_errors,
         final_answer=raw_exec,
     )
-
-    # ----------------------------
-    # 7. RETURN STRUCTURED RESULT
-    # ----------------------------
-    return ExecutionResult(
-        goal=user_goal,
-        completed=execution_succeeded,
-        outputs={
-            "plan": task_plan.model_dump(),
-            "research": research_output,
-            "judge": judge.model_dump(),
-            "weather": weather_result if weather_result else None,
-        },
-        errors=execution_errors,
-        final_answer=raw_exec,
-    )
+# ============================================================================
