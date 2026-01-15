@@ -1,11 +1,15 @@
 from __future__ import annotations
 import asyncio
+from dotenv import load_dotenv 
+
 from orchestrai.metrics import MetricsTracker
 from .mcp_tools import load_mcp_tools
 from .workflow import run_orchestration
 
 
 async def main():
+    load_dotenv()  
+    
     print("\nLoading MCP tools...")
     tools, _ = await load_mcp_tools()
     
@@ -16,7 +20,7 @@ async def main():
     print("Examples:")
     print("  - Create a note titled 'ideas' with content 'Ship demo on Friday'")
     print("  - Weather in New York and create a packing checklist note")
-    print("  - Find cheapest Airbnb stays in NYC for Aug 13 and summarize options")
+    print("  - Search for python tutorials")  # ← UPDATE THIS (remove Airbnb example)
     print("Type 'exit' to quit.")
     print("=" * 44)
 
