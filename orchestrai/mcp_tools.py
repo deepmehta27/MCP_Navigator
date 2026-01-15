@@ -80,13 +80,24 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
         },
     }
     
+    # Load external MCP servers from browser_mcp.json
     browser_cfg_path = Path(repo_path("servers", "browser_mcp.json"))
+    
     if browser_cfg_path.exists():
         cfg = json.loads(browser_cfg_path.read_text(encoding="utf-8"))
         for name, spec in (cfg.get("mcpServers", {}) or {}).items():
+            # Replace env vars in args
+            args = spec.get("args", [])
+            replaced_args = []
+            for arg in args:
+                # Replace ${VAR_NAME} with environment variable
+                for key, value in os.environ.items():
+                    arg = arg.replace(f"${{{key}}}", value)
+                replaced_args.append(arg)
+            
             connections[name] = {
                 "command": spec.get("command"),
-                "args": spec.get("args", []),
+                "args": replaced_args,
                 "transport": "stdio",
             }
     
@@ -98,14 +109,13 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
         raise RuntimeError(
             "Failed to load MCP tools. One or more MCP servers failed to start.\n"
             "Common causes:\n"
-            "- Node-based MCP servers not installed\n"
-            "- Playwright not set up\n"
-            "- Windows stdio issues\n\n"
+            "- Remote MCP server unreachable\n"
+            "- Invalid API keys\n"
+            "- Network connectivity issues\n\n"
             f"Original error:\n{e}"
         )
     
     return tools, connections
-
 
 def filter_tools(tools: List[Any], allow: List[str]) -> List[Any]:
     allowed = []
