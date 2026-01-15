@@ -12,7 +12,7 @@ def _llm() -> ChatOpenAI:
 
 
 def build_research_agent(all_tools: List[Any]) -> Agent:
-    tools = filter_tools(all_tools, allow=["duckduckgo", "playwright"])
+    tools = filter_tools(all_tools, allow=["tavily"])
     return Agent(
         role="Research Coordinator",
         goal="Gather accurate, relevant information using search and browsing tools.",
@@ -24,11 +24,18 @@ def build_research_agent(all_tools: List[Any]) -> Agent:
 
 
 def build_planner_agent(all_tools: List[Any]) -> Agent:
-    tools = filter_tools(all_tools, allow=["notes"])
+    tools = filter_tools(all_tools, allow=["note"])  # ← UNCHANGED
     return Agent(
         role="Task Planner",
         goal="Convert user goals into a structured step-by-step plan, track it in Notes.",
-        backstory="You create deterministic plans with clear success criteria and tool choices.",
+        backstory=(
+            "You create deterministic plans with clear success criteria and tool choices.\n\n"
+            "TOOL SELECTION RULES:\n"
+            "- For web searches: Use 'tavily_search'\n"
+            "- For weather: Use 'get_weather'\n"
+            "- For notes: Use 'add_note', 'search_notes', etc.\n"
+            "- Keep plans simple - prefer single-step solutions"
+        ),
         llm=_llm(),
         allow_delegation=False,
         verbose=True,
