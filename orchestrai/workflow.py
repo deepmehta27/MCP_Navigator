@@ -85,49 +85,38 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                     print(f"   🌤️  City: {city}")
                     result = await runner.call(tool_name, {"city": city})
                 
-                # ===== NOTES =====
-                elif tool_name == "add_note":
-                    # Pattern 1: Full format with content
+                # ===== GITHUB =====
+                elif tool_name == "create_issue":
+                   # Extract repo from goal
                     match = re.search(
-                        r'note\s+titled?\s+["\']?([^"\']+?)["\']?\s+with\s+(?:content\s+)?["\']?(.+)["\']?', 
-                        user_goal, 
-                        re.IGNORECASE
+                        r'(?:in|for)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
+                        user_goal
                     )
-                    if match:
-                        params = {
-                            "title": match.group(1).strip(), 
-                            "content": match.group(2).strip()
-                        }
-                    else:
-                        # Pattern 2: Title only (no content specified)
-                        match = re.search(
-                            r'(?:create|add|make)\s+(?:a\s+)?note\s+(?:titled?|named?|called)\s+["\']([^"\']+)["\']',
-                            user_goal,
-                            re.IGNORECASE
-                        )
-                        if match:
-                            title = match.group(1).strip()
-                            params = {
-                                "title": title,
-                                "content": f"Note created: {title}"  # Simple default content
-                            }
-                        else:
-                            # Fallback: Use entire query as content, "Note" as title
-                            params = {"title": "Note", "content": user_goal}
+                    repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
                     
-                    result = await runner.call(tool_name, params)
+                    # ✅ SPLIT into owner and repo
+                    owner, repo = repo_full.split('/')
+                    
+                    print(f"   📍 Owner: {owner}, Repo: {repo}")
+                    
+                    result = await runner.call(tool_name, {
+                        "owner": owner,  # ✅ ADD THIS
+                        "repo": repo,    # ✅ CHANGE THIS (just repo name, not full)
+                        "title": user_goal,
+                        "body": f"Created via MCP Navigator: {user_goal}"
+                    })
                 
-                elif tool_name == "search_notes":
-                    match = re.search(r'search\s+(?:notes?\s+)?for\s+["\']?([^"\']+)["\']?', user_goal, re.IGNORECASE)
-                    keyword = match.group(1).strip() if match else user_goal
-                    result = await runner.call(tool_name, {"keyword": keyword})
+                elif tool_name == "list_issues":
+                    match = re.search(
+                        r'(?:in|for)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
+                        user_goal
+                    )
+                    repo = match.group(1) if match else "your-username/your-repo"
+                    result = await runner.call(tool_name, {"repo": repo})
                 
-                elif tool_name == "list_notes":
+                elif tool_name.startswith("github_"):
+                    # Generic GitHub tools - try with minimal params
                     result = await runner.call(tool_name, {})
-                
-                # ===== BROWSER (skip complex automation) =====
-                elif tool_name.startswith("browser_"):
-                    result = f"Browser tool '{tool_name}' requires manual configuration"
                 
                 # ===== FALLBACK =====
                 else:
@@ -189,7 +178,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         "TOOL SELECTION RULES:\n"
         "- For web searches: Use 'tavily_search' (reliable, fast)\n"
         "- For weather: Use 'get_weather'\n"
-        "- For notes: Use 'add_note', 'search_notes', 'list_notes'\n"
+        "- For GitHub: Use 'create_issue', 'list_issues', 'create_or_update_file'\n"
         "- Prefer simple, single-step solutions\n\n"
         "DO NOT invent tools.\n"
         "DO NOT use generic terms like 'browser', 'internet', or 'API'.\n"
