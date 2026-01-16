@@ -1780,9 +1780,9 @@ wheels = [
 ]
 
 [[package]]
-name = "orchestrai-mcp"
+name = "orchestrai"
 version = "0.2.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "crewai" },
     { name = "httpx" },
