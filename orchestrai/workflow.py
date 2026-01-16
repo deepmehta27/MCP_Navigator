@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import re
 import time
-from datetime import datetime, timedelta
-from typing import Dict, Any, Tuple
-import asyncio
+from datetime import datetime
+from typing import Dict, Any
 from crewai import Task, Crew, Process
 from pydantic import ValidationError
 
@@ -14,7 +13,6 @@ from orchestrai.tool_runner import ToolRunner
 from orchestrai.mcp_tools import get_tool_names
 from eval.judge import judge_run
 from orchestrai.metrics import MetricsTracker, MetricEntry, infer_goal_type
-
 
 # ============================================================================
 # PARAMETER EXTRACTION FUNCTIONS (NEW)
@@ -82,7 +80,7 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                 # ===== WEATHER =====
                 elif tool_name == "get_weather":
                     city = extract_city(user_goal)
-                    print(f"   🌤️  City: {city}")
+                    print(f"City: {city}")
                     result = await runner.call(tool_name, {"city": city})
                 
                 # ===== GITHUB =====
@@ -94,14 +92,12 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                     )
                     repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
                     
-                    # ✅ SPLIT into owner and repo
+                    #SPLIT into owner and repo
                     owner, repo = repo_full.split('/')
                     
-                    print(f"   📍 Owner: {owner}, Repo: {repo}")
-                    
                     result = await runner.call(tool_name, {
-                        "owner": owner,  # ✅ ADD THIS
-                        "repo": repo,    # ✅ CHANGE THIS (just repo name, not full)
+                        "owner": owner, 
+                        "repo": repo,    
                         "title": user_goal,
                         "body": f"Created via MCP Navigator: {user_goal}"
                     })
@@ -111,7 +107,7 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                         r'(?:in|for)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
                         user_goal
                     )
-                    repo = match.group(1) if match else "your-username/your-repo"
+                    repo = match.group(1) if match else "deepmehta27/mcp-navigator-test"
                     result = await runner.call(tool_name, {"repo": repo})
                 
                 elif tool_name.startswith("github_"):
@@ -125,7 +121,7 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                 # Store result
                 result_str = str(result)
                 results[tool_name] = result_str[:2000] if len(result_str) > 2000 else result_str
-                print(f"✅ Preview: {result_str[:150]}...")
+                print(f"Preview: {result_str[:150]}...")
                 
             except Exception as e:
                 error_msg = f"Error: {str(e)}"
@@ -230,7 +226,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         for tool in step.tools or []:
             if tool not in allowed:
                 raise RuntimeError(
-                    f"\n❌ VALIDATION FAILED: Planner used invalid tool '{tool}' in step {step.step_id}.\n"
+                    f"\nVALIDATION FAILED: Planner used invalid tool '{tool}' in step {step.step_id}.\n"
                     f"Allowed tools: {sorted(allowed)}\n\n"
                     f"Full plan:\n{task_plan.model_dump_json(indent=2)}"
                 )
@@ -252,7 +248,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         print(f"  - {tool_name}: {result[:100]}..." if len(str(result)) > 100 else f"  - {tool_name}: {result}")
 
     if not tool_results:
-        print("⚠️  WARNING: No tool results collected!")
+        print("WARNING: No tool results collected!")
     
     # ----------------------------
     # 4. OPTIONAL RESEARCH STEP (EXISTING)
@@ -376,7 +372,7 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
             "plan": task_plan.model_dump(),
             "research": research_output,
             "judge": judge.model_dump(),
-            "tool_results": tool_results,  # NEW: Include tool results
+            "tool_results": tool_results,  
             "execution_time": execution_time,
         },
         errors=execution_errors,

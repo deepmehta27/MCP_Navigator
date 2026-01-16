@@ -24,7 +24,7 @@ def build_research_agent(all_tools: List[Any]) -> Agent:
 
 
 def build_planner_agent(all_tools: List[Any]) -> Agent:
-    tools = filter_tools(all_tools, allow=["note"])  # ← UNCHANGED
+    tools = []
     return Agent(
         role="Task Planner",
         goal="Convert user goals into a structured step-by-step plan, track it in Notes.",
@@ -33,7 +33,6 @@ def build_planner_agent(all_tools: List[Any]) -> Agent:
             "TOOL SELECTION RULES:\n"
             "- For web searches: Use 'tavily_search'\n"
             "- For weather: Use 'get_weather'\n"
-            "- For notes: Use 'add_note', 'search_notes', etc.\n"
             "- Keep plans simple - prefer single-step solutions"
         ),
         llm=_llm(),
@@ -43,7 +42,7 @@ def build_planner_agent(all_tools: List[Any]) -> Agent:
 
 
 def build_executor_agent(all_tools: List[Any]) -> Agent:
-    tools = filter_tools(all_tools, allow=["weather", "airbnb", "playwright", "notes"])
+    tools = filter_tools(all_tools, allow=["weather"])
     return Agent(
         role="Action Executor",
         goal=(
