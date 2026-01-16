@@ -19,7 +19,7 @@ def print_tools_loaded(tools):
     
     # Categorize tools
     search_tools = [t for t in tool_names if 'tavily' in t]
-    note_tools = [t for t in tool_names if 'note' in t]
+    github_tools = [t for t in tool_names if 'github' in t.lower() or any(x in t for x in ['issue', 'repo', 'pull', 'branch'])]
     weather_tools = [t for t in tool_names if 'weather' in t]
     
     print("\n📦 Loaded MCP Tools:")
@@ -27,8 +27,9 @@ def print_tools_loaded(tools):
         print(f"   🔍 Search: {', '.join(search_tools)}")
     if weather_tools:
         print(f"   🌤️  Weather: {', '.join(weather_tools)}")
-    if note_tools:
-        print(f"   📝 Notes: {', '.join(note_tools)}")
+    if github_tools:
+        print(f"   🐙 GitHub: {', '.join(github_tools[:3])}..." if len(github_tools) > 3 else f"   🐙 GitHub: {', '.join(github_tools)}")
+    
     print(f"\n   Total: {len(tool_names)} tools across 3 servers")
 
 def print_help():
@@ -38,18 +39,18 @@ def print_help():
     print("      - Find the latest AI news")
     print("      - Search for Python best practices")
     print()
-    print("   📝 Notes:")
-    print("      - Create a note titled 'Meeting Notes'")
-    print("      - Add a note titled 'Ideas' with content 'Build AI agents'")
-    print("      - List all notes")
+    print("   🐙 GitHub:")
+    print("      - Create an issue in owner/repo titled 'Bug fix needed'")
+    print("      - List issues for deepmehta27/mcp-navigator")
+    print("      - Get file contents from my-username/my-repo")
     print()
     print("   🌤️  Weather:")
     print("      - What's the weather in San Francisco?")
     print("      - Weather in NYC")
     print()
     print("   🔗 Multi-step:")
-    print("      - Search for AI startups and save top 3 to notes")
-    print("      - Weather in Tokyo and create travel checklist")
+    print("      - Search for trending AI repos and create GitHub issue summary")
+    print("      - Weather in Tokyo and list issues in travel-planner repo")
     print()
     print("⚙️  Commands:")
     print("   metrics       - View performance metrics")
