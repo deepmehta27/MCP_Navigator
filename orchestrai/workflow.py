@@ -74,7 +74,7 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                 if tool_name == "tavily_search":
                     result = await runner.call(tool_name, {
                         "query": user_goal,
-                        "max_results": 5
+                        "max_results": 10
                     })
                 
                 # ===== WEATHER =====
@@ -85,34 +85,138 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                 
                 # ===== GITHUB =====
                 elif tool_name == "create_issue":
-                   # Extract repo from goal
                     match = re.search(
                         r'(?:in|for)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
                         user_goal
                     )
                     repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
-                    
-                    #SPLIT into owner and repo
                     owner, repo = repo_full.split('/')
                     
+                    # Smart title extraction with quote priority
+                    title = user_goal
+                    
+                    # Priority 1: Extract quoted text (highest priority)
+                    quoted_match = re.search(r'["\']([^"\']+)["\']', user_goal)
+                    if quoted_match:
+                        title = quoted_match.group(1)
+                    else:
+                        # Priority 2: Extract after keywords like "issue", "titled", "called"
+                        keyword_match = re.search(
+                            r'(?:issue|titled|called|named)\s+["\']?([^"\']+?)["\']?(?:\s+(?:in|for|repo)|$)',
+                            user_goal,
+                            re.IGNORECASE
+                        )
+                        if keyword_match:
+                            title = keyword_match.group(1).strip()
+                        else:
+                            # Priority 3: Remove boilerplate phrases
+                            title = re.sub(r'create\s+(?:a\s+)?(?:github\s+)?issue\s+(?:about|for|on|titled)?\s*', '', title, flags=re.IGNORECASE)
+                            title = re.sub(r'\s*(?:and\s+)?(?:in|for)\s+repo\s+[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+', '', title).strip()
+                            # Remove leading "and" connectors
+                            title = re.sub(r'^\s*(?:and|then)\s+', '', title, flags=re.IGNORECASE).strip()
+                    
+                    # Build body from ALL previous tool results
+                    body = ""
+                    if results:
+                        body += "## Automated Issue Summary\n\n"
+                        body += f"**Generated from:** {user_goal}\n\n"
+                        body += "---\n\n"
+                        
+                        for tool_name_prev, result_data in results.items():
+                            if tool_name_prev == "create_issue":
+                                continue
+                            
+                            body += f"### Results from `{tool_name_prev}`\n\n"
+                            result_str = str(result_data)
+                            if len(result_str) > 2000:
+                                result_str = result_str[:2000] + "\n\n... (truncated)"
+                            
+                            body += f"```\n{result_str}\n```\n\n"
+                    else:
+                        body = f"**Issue created via MCP Navigator**\n\n**Request:** {user_goal}"
+                    
+                    print(f"Creating issue with title: '{title}'")
                     result = await runner.call(tool_name, {
-                        "owner": owner, 
-                        "repo": repo,    
-                        "title": user_goal,
-                        "body": f"Created via MCP Navigator: {user_goal}"
+                        "owner": owner,
+                        "repo": repo,
+                        "title": title if title else user_goal,
+                        "body": body
                     })
-                
+
+
                 elif tool_name == "list_issues":
+                    match = re.search(
+                        r'(?:in|for|from)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
+                        user_goal
+                    )
+                    repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
+                    owner, repo = repo_full.split('/')
+                    print(f"Owner: {owner}, Repo: {repo}")
+                    
+                    # Request multiple issues per page
+                    result = await runner.call(tool_name, {
+                        "owner": owner,
+                        "repo": repo,
+                        "perPage": 100,
+                        "state": "all"   
+                    })
+
+                elif tool_name == "get_file_contents":
+                    match = re.search(
+                        r'(?:in|for|from)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
+                        user_goal
+                    )
+                    repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
+                    owner, repo = repo_full.split('/')
+                    
+                    # Extract file path
+                    path_match = re.search(r'(?:file|path)\s+([^\s]+)', user_goal)
+                    path = path_match.group(1) if path_match else "README.md"
+                    
+                    print(f"Owner: {owner}, Repo: {repo}, Path: {path}")
+                    result = await runner.call(tool_name, {
+                        "owner": owner,
+                        "repo": repo,
+                        "path": path
+                    })
+
+                elif tool_name == "create_or_update_file":
                     match = re.search(
                         r'(?:in|for)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
                         user_goal
                     )
-                    repo = match.group(1) if match else "deepmehta27/mcp-navigator-test"
-                    result = await runner.call(tool_name, {"repo": repo})
-                
-                elif tool_name.startswith("github_"):
-                    # Generic GitHub tools - try with minimal params
-                    result = await runner.call(tool_name, {})
+                    repo_full = match.group(1) if match else "deepmehta27/mcp-navigator-test"
+                    owner, repo = repo_full.split('/')
+                    
+                    # Extract file path
+                    path_match = re.search(r'(?:file|path)\s+([^\s]+)', user_goal)
+                    path = path_match.group(1) if path_match else "test.txt"
+                    
+                    print(f"Owner: {owner}, Repo: {repo}, Path: {path}")
+                    result = await runner.call(tool_name, {
+                        "owner": owner,
+                        "repo": repo,
+                        "path": path,
+                        "content": f"Updated via MCP Navigator: {user_goal}",
+                        "message": f"Update from MCP Navigator"
+                    })
+
+                # Generic GitHub fallback
+                elif tool_name.startswith(("create_", "list_", "get_", "update_", "search_")) and any(x in tool_name for x in ["issue", "repo", "pull", "branch"]):
+                    # Try to extract owner/repo if possible
+                    match = re.search(
+                        r'(?:in|for|from)\s+(?:repo\s+)?([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)',
+                        user_goal
+                    )
+                    if match:
+                        repo_full = match.group(1)
+                        owner, repo = repo_full.split('/')
+                        result = await runner.call(tool_name, {
+                            "owner": owner,
+                            "repo": repo
+                        })
+                    else:
+                        result = await runner.call(tool_name, {})
                 
                 # ===== FALLBACK =====
                 else:
@@ -176,6 +280,13 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
         "- For weather: Use 'get_weather'\n"
         "- For GitHub: Use 'create_issue', 'list_issues', 'create_or_update_file'\n"
         "- Prefer simple, single-step solutions\n\n"
+        "**MULTI-TOOL RULES:**\n"
+        "- Each step should have EXACTLY ONE tool\n"
+        "- If you need data from Tool A to use in Tool B, create TWO steps:\n"
+        "  Step 1: Use Tool A to gather data\n"
+        "  Step 2: Use Tool B with the data from Step 1\n"
+        "- NEVER combine tools that depend on each other in the same step\n"
+        "- Example: 'search then create issue' = 2 steps, NOT 1 step\n\n"
         "DO NOT invent tools.\n"
         "DO NOT use generic terms like 'browser', 'internet', or 'API'.\n"
         "If no tool is needed for a step, omit the tools field.\n\n"
@@ -278,25 +389,28 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     # 5. RUN EXECUTOR (WITH TOOL RESULTS)
     # ----------------------------
     exec_description = (
-        "You are the Action Executor.\n\n"
-        "You MUST execute the following plan exactly.\n\n"
-        f"Task Plan:\n{task_plan.model_dump_json(indent=2)}\n\n"
-    )
-    
-    # Inject tool results into executor context
+    "You are the Action Executor.\n\n"
+    "You MUST use the tool results below to complete the user's goal.\n\n"
+    f"Task Plan:\n{task_plan.model_dump_json(indent=2)}\n\n"
+)
+
     if tool_results:
         exec_description += "\n**Tool Execution Results:**\n"
         for tool_name, result in tool_results.items():
             exec_description += f"\n{tool_name}:\n{result}\n"
-    
+        
     exec_description += (
-        "\nRules:\n"
-        "- Use the tool results provided above\n"
-        "- DO NOT retry tools\n"
-        "- If data is missing, state it clearly\n"
-        "- Output ONLY the final user-facing answer\n\n"
-        f"Original user goal: {user_goal}"
-    )
+            "\n**CRITICAL INSTRUCTIONS:**\n"
+            "1. Synthesize ALL tool results above into a coherent answer\n"
+            "2. If multiple steps were executed, combine the results logically\n"
+            "3. For example, if you searched for repos AND created an issue:\n"
+            "   - Extract repo names/URLs from search results\n"
+            "   - Format them into a summary\n"
+            "   - Confirm the issue was created with that summary\n"
+            "4. DO NOT just say 'task completed' - provide specific details\n"
+            "5. Show what data was found and what action was taken\n\n"
+            f"Original user goal: {user_goal}"
+        )
     
     exec_task = Task(
         description=exec_description,
