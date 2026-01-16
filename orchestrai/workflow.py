@@ -87,12 +87,34 @@ async def execute_plan_tools(plan: TaskPlan, runner: ToolRunner, user_goal: str)
                 
                 # ===== NOTES =====
                 elif tool_name == "add_note":
-                    # Extract title and content
-                    match = re.search(r'note\s+titled?\s+["\']?([^"\']+?)["\']?\s+with\s+(?:content\s+)?["\']?(.+)["\']?', user_goal, re.IGNORECASE)
+                    # Pattern 1: Full format with content
+                    match = re.search(
+                        r'note\s+titled?\s+["\']?([^"\']+?)["\']?\s+with\s+(?:content\s+)?["\']?(.+)["\']?', 
+                        user_goal, 
+                        re.IGNORECASE
+                    )
                     if match:
-                        params = {"title": match.group(1).strip(), "content": match.group(2).strip()}
+                        params = {
+                            "title": match.group(1).strip(), 
+                            "content": match.group(2).strip()
+                        }
                     else:
-                        params = {"title": "Note", "content": user_goal}
+                        # Pattern 2: Title only (no content specified)
+                        match = re.search(
+                            r'(?:create|add|make)\s+(?:a\s+)?note\s+(?:titled?|named?|called)\s+["\']([^"\']+)["\']',
+                            user_goal,
+                            re.IGNORECASE
+                        )
+                        if match:
+                            title = match.group(1).strip()
+                            params = {
+                                "title": title,
+                                "content": f"Note created: {title}"  # Simple default content
+                            }
+                        else:
+                            # Fallback: Use entire query as content, "Note" as title
+                            params = {"title": "Note", "content": user_goal}
+                    
                     result = await runner.call(tool_name, params)
                 
                 elif tool_name == "search_notes":
