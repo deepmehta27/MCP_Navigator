@@ -29,13 +29,13 @@ def ensure_weather_server() -> None:
         s.settimeout(0.3)
         s.connect(("127.0.0.1", 8000))
         s.close()
-        print("✅ Weather MCP already running on :8000")
+        print("Weather MCP already running on :8000")
         return
     except Exception:
         pass
     
     # Start the server
-    print("🚀 Starting Weather MCP on :8000...")
+    print("*******Starting Weather MCP on :8000*******")
     DETACHED = 0x00000008 if sys.platform == "win32" else 0
     subprocess.Popen(
         [sys.executable, repo_path("servers", "weather.py")],
@@ -44,7 +44,7 @@ def ensure_weather_server() -> None:
         creationflags=DETACHED,
     )
     
-    # ✅ CRITICAL FIX: Wait for server to actually start
+    # CRITICAL FIX: Wait for server to actually start
     max_attempts = 20  # Try for 10 seconds
     for attempt in range(max_attempts):
         time.sleep(0.5)  # Wait 500ms
@@ -53,14 +53,14 @@ def ensure_weather_server() -> None:
             s.settimeout(0.3)
             s.connect(("127.0.0.1", 8000))
             s.close()
-            print(f"✅ Weather MCP ready after {(attempt + 1) * 0.5:.1f}s")
-            return  # ← Only returns when server is ACTUALLY ready
+            print(f"Weather MCP ready after {(attempt + 1) * 0.5:.1f}s")
+            return 
         except Exception:
             continue
     
     # If we get here, server never started
     raise RuntimeError(
-        "❌ Weather MCP failed to start after 10 seconds.\n"
+        "Weather MCP failed to start after 10 seconds.\n"
         "Check if port 8000 is already in use or if weather.py has errors."
     )
 
@@ -104,14 +104,6 @@ async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
     client = MultiServerMCPClient(connections)
     try:
         tools = await client.get_tools()
-        
-        # ✅ MINIMAL DEBUG: Just print what create_issue looks like
-        for tool in tools:
-            if tool.name == "create_issue":
-                print(f"\n🔍 create_issue tool found")
-                print(f"   Description: {tool.description}")
-                print(f"   Type: {type(tool)}")
-                print(f"   Dir: {[x for x in dir(tool) if not x.startswith('_')][:15]}\n")
         
     except Exception as e:
         raise RuntimeError(

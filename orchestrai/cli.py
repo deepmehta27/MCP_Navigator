@@ -10,7 +10,7 @@ from .workflow import run_orchestration
 def print_banner():
     """Display startup banner"""
     print("\n" + "=" * 60)
-    print("🚀 MCP NAVIGATOR 2.0 - Multi-Agent Orchestration System")
+    print("MCP NAVIGATOR 2.0 - Multi-Agent Orchestration System")
     print("=" * 60)
 
 def print_tools_loaded(tools):
@@ -24,35 +24,35 @@ def print_tools_loaded(tools):
     
     print("\n📦 Loaded MCP Tools:")
     if search_tools:
-        print(f"   🔍 Search: {', '.join(search_tools)}")
+        print(f"Search: {', '.join(search_tools)}")
     if weather_tools:
-        print(f"   🌤️  Weather: {', '.join(weather_tools)}")
+        print(f"Weather: {', '.join(weather_tools)}")
     if github_tools:
-        print(f"   🐙 GitHub: {', '.join(github_tools[:3])}..." if len(github_tools) > 3 else f"   🐙 GitHub: {', '.join(github_tools)}")
+        print(f"GitHub: {', '.join(github_tools[:3])}..." if len(github_tools) > 3 else f"   GitHub: {', '.join(github_tools)}")
     
     print(f"\n   Total: {len(tool_names)} tools across 3 servers")
 
 def print_help():
     """Display usage examples and commands"""
-    print("\n💡 Examples:")
-    print("   🔍 Search:")
+    print("\nExamples:")
+    print(" Search:")
     print("      - Find the latest AI news")
     print("      - Search for Python best practices")
     print()
-    print("   🐙 GitHub:")
+    print(" GitHub:")
     print("      - Create an issue in owner/repo titled 'Bug fix needed'")
     print("      - List issues for deepmehta27/mcp-navigator")
     print("      - Get file contents from my-username/my-repo")
     print()
-    print("   🌤️  Weather:")
+    print(" Weather:")
     print("      - What's the weather in San Francisco?")
     print("      - Weather in NYC")
     print()
-    print("   🔗 Multi-step:")
+    print(" Multi-step:")
     print("      - Search for trending AI repos and create GitHub issue summary")
     print("      - Weather in Tokyo and list issues in travel-planner repo")
     print()
-    print("⚙️  Commands:")
+    print("Commands:")
     print("   metrics       - View performance metrics")
     print("   metrics 5     - View last 5 runs")
     print("   help          - Show this help message")
