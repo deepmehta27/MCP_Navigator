@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from datetime import datetime
 from typing import Dict, Any, List
 from dataclasses import dataclass, asdict
-from statistics import mean, stdev
+from statistics import mean
 
 
 @dataclass
@@ -129,11 +128,9 @@ def infer_goal_type(goal: str) -> str:
     
     if any(w in goal_lower for w in ["weather", "temperature", "forecast"]):
         return "weather"
-    elif any(w in goal_lower for w in ["note", "create", "save", "write"]):
-        return "notes"
-    elif any(w in goal_lower for w in ["search", "find", "look"]):
+    elif any(w in goal_lower for w in ["search", "find", "look"]): 
         return "search"
-    elif any(w in goal_lower for w in ["browse", "visit", "website"]):
-        return "browse"
+    elif any(w in goal_lower for w in ["issue", "repo", "github", "pull"]): 
+        return "github"
     else:
         return "other"
