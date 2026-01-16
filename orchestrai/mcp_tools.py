@@ -64,57 +64,66 @@ def ensure_weather_server() -> None:
         "Check if port 8000 is already in use or if weather.py has errors."
     )
 
-
 async def load_mcp_tools() -> Tuple[List[Any], Dict[str, Any]]:
     ensure_weather_server()
     
     connections: Dict[str, Any] = {
-        "notes": {
-            "command": sys.executable,
-            "args": [repo_path("servers", "notes_server.py")],
-            "transport": "stdio",
-        },
         "weather": {
             "url": "http://localhost:8000/mcp",
             "transport": "streamable_http",
         },
     }
-    
-    # Load external MCP servers from browser_mcp.json
+
     browser_cfg_path = Path(repo_path("servers", "browser_mcp.json"))
-    
     if browser_cfg_path.exists():
         cfg = json.loads(browser_cfg_path.read_text(encoding="utf-8"))
         for name, spec in (cfg.get("mcpServers", {}) or {}).items():
-            # Replace env vars in args
             args = spec.get("args", [])
             replaced_args = []
             for arg in args:
-                # Replace ${VAR_NAME} with environment variable
                 for key, value in os.environ.items():
                     arg = arg.replace(f"${{{key}}}", value)
                 replaced_args.append(arg)
+            
+            env_vars = spec.get("env", {})
+            replaced_env = {}
+            for env_key, env_value in env_vars.items():
+                for key, value in os.environ.items():
+                    env_value = env_value.replace(f"${{{key}}}", value)
+                replaced_env[env_key] = env_value
             
             connections[name] = {
                 "command": spec.get("command"),
                 "args": replaced_args,
                 "transport": "stdio",
             }
-    
+            
+            if replaced_env:
+                connections[name]["env"] = replaced_env
+
     client = MultiServerMCPClient(connections)
-    
     try:
         tools = await client.get_tools()
+        
+        # ✅ MINIMAL DEBUG: Just print what create_issue looks like
+        for tool in tools:
+            if tool.name == "create_issue":
+                print(f"\n🔍 create_issue tool found")
+                print(f"   Description: {tool.description}")
+                print(f"   Type: {type(tool)}")
+                print(f"   Dir: {[x for x in dir(tool) if not x.startswith('_')][:15]}\n")
+        
     except Exception as e:
         raise RuntimeError(
             "Failed to load MCP tools. One or more MCP servers failed to start.\n"
             "Common causes:\n"
-            "- Remote MCP server unreachable\n"
-            "- Invalid API keys\n"
+            "- GitHub token missing or invalid (check GITHUB_TOKEN in .env)\n"
+            "- Tavily API key missing (check TAVILY_API_KEY in .env)\n"
+            "- npm packages not installed (@modelcontextprotocol/server-github, mcp-remote)\n"
             "- Network connectivity issues\n\n"
             f"Original error:\n{e}"
         )
-    
+
     return tools, connections
 
 def filter_tools(tools: List[Any], allow: List[str]) -> List[Any]:
@@ -124,7 +133,6 @@ def filter_tools(tools: List[Any], allow: List[str]) -> List[Any]:
         if any(a in name for a in allow):
             allowed.append(t)
     return allowed
-
 
 def get_tool_names(tools):
     return sorted({tool.name for tool in tools})
