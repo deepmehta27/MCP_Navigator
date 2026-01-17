@@ -238,8 +238,6 @@ Contributions welcome! Focus areas:
 - **Performance optimization**: Reduce cold-start latency (<10s target)
 - **Documentation**: Production deployment guides
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 ***
 
 Made with ❤️ by Deep Mehta
