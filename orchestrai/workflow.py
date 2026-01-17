@@ -364,26 +364,8 @@ async def run_orchestration(user_goal: str, tools) -> ExecutionResult:
     # ----------------------------
     # 4. OPTIONAL RESEARCH STEP (EXISTING)
     # ----------------------------
-    research_task = Task(
-        description=(
-            "Research the goal using tools if needed and return JSON matching:\n"
-            f"{ResearchPacket.model_json_schema()}\n\n"
-            f"Goal: {user_goal}\n"
-        ),
-        expected_output="Valid JSON for ResearchPacket",
-        agent=research_agent,
-    )
-
-    research_crew = Crew(
-        agents=[research_agent],
-        tasks=[research_task],
-        process=Process.sequential,
-        verbose=True,
-    )
-
-    research_output = research_crew.kickoff()
-    if not isinstance(research_output, str):
-        research_output = str(research_output)
+    print("\nSkipping research (using direct tool execution)")
+    research_output = '{"query": "' + user_goal + '", "findings": [], "notes": "Skipped - using tool results directly"}'
 
     # ----------------------------
     # 5. RUN EXECUTOR (WITH TOOL RESULTS)
