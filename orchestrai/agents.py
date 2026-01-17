@@ -12,14 +12,14 @@ def _llm() -> ChatOpenAI:
 
 
 def build_research_agent(all_tools: List[Any]) -> Agent:
-    tools = filter_tools(all_tools, allow=["tavily"])
     return Agent(
         role="Research Coordinator",
         goal="Gather accurate, relevant information using search and browsing tools.",
         backstory="You are careful, skeptical, and cite sources in your own scratch notes.",
         llm=_llm(),
         allow_delegation=False,
-        verbose=True,
+        verbose=False,
+        tools=[]
     )
 
 
@@ -38,6 +38,7 @@ def build_planner_agent(all_tools: List[Any]) -> Agent:
         llm=_llm(),
         allow_delegation=False,
         verbose=True,
+        tools=[],
     )
 
 
@@ -58,4 +59,5 @@ def build_executor_agent(all_tools: List[Any]) -> Agent:
         llm=_llm(),
         allow_delegation=False,
         verbose=True,
+        tools=[]
     )
