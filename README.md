@@ -62,7 +62,7 @@ Centralized, generic tool router with:
 ### Setup
 ```bash
 # Clone and install
-git clone [<your-repo-url>](https://github.com/deepmehta27/MCP_Navigator.git)
+git clone https://github.com/deepmehta27/MCP_Navigator.git
 cd MCP_Navigator
 pip install -r requirements.txt
 
